@@ -1,0 +1,8 @@
+spec/
+node_modules/
+.nyc_output/
+package-lock.json
+# ignore the .ts files
+*.ts
+# include the .d.ts files
+!*.d.ts
