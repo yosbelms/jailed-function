@@ -1,6 +1,6 @@
 {
-  "name": "ts-jail",
-  "version": "1.0.0",
+  "name": "jailed-function",
+  "version": "0.5.1",
   "description": "",
   "main": "lib/index.js",
   "type": "commonjs",
@@ -9,7 +9,7 @@
     "build": "tsc --sourceMap",
     "watch": "tsc --sourceMap --watch",
     "clean": "rm -f ./lib/*",
-    "prepublish": "npm clean && npm build",
+    "prepublish": "npm run clean && npm run test && npm run build",
     "perf": "ts-node spec/perf.ts"
   },
   "author": "",
