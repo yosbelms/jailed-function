@@ -13,8 +13,7 @@ Jailed Function is a Node.js library that safely runs untrusted code. It can be 
 
 1. The source code is transpiled to a secure source code by allowing only a [JavaScript subset](src/javascript-subset.txt) and limiting global variable access at compile time. Additionaly the new code contains runtime memory and execution time checks to limit resource usage on each run.
 2. Run secured source code in an isolated context using Node.js VM.
-2. All imported globals and arguments passed to jailed functions are made read-only using Proxies, thus preventing mutations.
-3. Return deep clones of jailed functions results before exiting the sandbox scope.
+3. All imported globals, arguments passed, and return values of jailed functions are made read-only using Proxies, thus preventing mutations.
 
 ## Usage
 
