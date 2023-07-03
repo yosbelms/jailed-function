@@ -102,14 +102,14 @@ const readOnlyTraps = {
     return readOnly(new target(...args))
   },
   get(target: any, prop: any, receiver: any): any {
-    const val = target[prop]
-    if (isFunction(val)) {
-      return readOnly((...args: any[]) => val.apply(target, args))
+    const val = Reflect.get(target, prop, receiver)
+    if (prop !== 'constructor' && isFunction(val)) {
+      return readOnly((...args: any[]) => readOnly(val.apply(target, args)))
     }
-    return readOnly(Reflect.get(target, prop, receiver))
+    return readOnly(val)
   },
   set(target: any, prop: any, val: any) {
-    return val
+    throw new Error(`Invalid operation: Setting '${prop}' to read only object`)
   },
 }
 
@@ -122,7 +122,6 @@ export const readOnly = <T>(target: T, traps: { [k: string]: Function } = {}): T
       writable: false,
       enumerable: false,
     })
-    // (target as any)[readOnlySymbol] = true
     return new Proxy(target, { ...readOnlyTraps, ...traps })
   }
 }

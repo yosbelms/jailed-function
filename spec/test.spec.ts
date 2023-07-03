@@ -80,7 +80,6 @@ describe('JailedFunction', () => {
   // and the time elapsed since the previous async time check
   // was greater than the budget time for sync execution
   it('should call time async check after each await expressions', async () => {
-    const len = 1
     const service = {
       async asyncFn() {
         await delay(500)
@@ -146,19 +145,20 @@ describe('JailedFunction', () => {
     expect(create).toThrow()
   })
 
-  it('should clone result by default', async () => {
+  it('should make result read-only by default', async () => {
     const obj = { name: 'John' }
-    // clone
+    // read only
     let jailedFunction = createJailedFunction({
       source: `async (obj) => obj`
     })
     let result = await jailedFunction([obj])
     expect(result === obj).toBeFalse()
     expect(result).toEqual(obj)
+    expect(() => result.name = 'Peter').toThrow()
 
-    // don't clone
+    // don't make result read-only
     jailedFunction = createJailedFunction({
-      cloneResult: false,
+      readOnlyResult: false,
       source: `async (obj) => obj`
     })
     result = await jailedFunction([obj])
@@ -167,10 +167,8 @@ describe('JailedFunction', () => {
   })
 
   it('should collaborate. Functions should not not overtake', async () => {
-    const len = 100
-
     let jailedFunction = createJailedFunction({
-      cloneResult: false,
+      readOnlyResult: false,
       source: `async (rid, count, mem) => {
         let i = count
         while (--i) mem.push(rid)
@@ -201,9 +199,7 @@ describe('JailedFunction', () => {
       source: `async (obj) => obj.name = 'Peter'`
     })
     const obj = { name: 'John' }
-    jailedFunction([obj])
-
-    expect(obj.name).toBe('John')
+    await expectAsync(jailedFunction([obj])).toBeRejected()
   })
 
   it('imported globals should be read-only', async () => {
@@ -212,9 +208,7 @@ describe('JailedFunction', () => {
       source: `async () => obj.name = 'Peter'`
     })
     const obj = { name: 'John' }
-    jailedFunction([], { obj: obj })
-
-    expect(obj.name).toBe('John')
+    await expectAsync(jailedFunction([], { obj: obj })).toBeRejected()
   })
 
 })

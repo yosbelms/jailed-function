@@ -22,7 +22,7 @@ describe('JailedFunction attacks', () => {
   it('contructor attack', async () => {
     const jailedFunction = createJailedFunction({
       globalNames: ['console'],
-      cloneResult: false,
+      readOnlyArguments: false,
       source: `async () => {
         return console.log.constructor
       }`

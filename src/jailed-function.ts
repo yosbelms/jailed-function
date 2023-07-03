@@ -25,9 +25,10 @@ interface JailedFunctionConfig {
   memoryLimit: number
   source: string
   filename: string
-  cloneResult: boolean
+  readOnlyResult: boolean
   readOnlyGlobals: boolean
   readOnlyArguments: boolean
+  strict: boolean
 }
 
 export interface JailedFunction {
@@ -113,7 +114,7 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     memoryLimit = defaultMemoryLimit,
     source = '',
     filename = 'jailed-function:file',
-    cloneResult = true,
+    readOnlyResult = true,
     globalNames = [],
     readOnlyGlobals = true,
     readOnlyArguments = true,
@@ -133,10 +134,9 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
   const __globals = '__globals'
   const resetContext = endent`const { ${globalNamesSet.join(', ')} } = ${__globals};`
 
-  const transformedCode = endent`'use strict'; exports.default = (${__globals}) => {
-    ${resetContext} ${__globals} = void 0;
-    ${`return ${code}`}
-  }`
+  const transformedCode = `"use strict"; exports.default = (${__globals}) => { ${resetContext} ${__globals} = void 0;
+${`return ${code}`}
+}`
 
   const script = new Script(transformedCode, {
     filename,
@@ -156,7 +156,6 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
   // evaluate js code
   script.runInNewContext(vmCtx, {
     displayErrors: true,
-    timeout: timeout,
     breakOnSigint: true,
   })
 
@@ -190,7 +189,7 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     )
 
     // deep-clone results
-    return cloneResult ? deepClone(result) : result
+    return readOnlyResult ? readOnly(result) : result
   }
 
   jailedFunction.source = transformedCode

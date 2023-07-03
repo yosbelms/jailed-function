@@ -1,6 +1,7 @@
 import { createJailedFunction } from '../src'
+import { readOnly } from '../src/util'
 
-const len = 100000
+const len = 1000000
 const perfTag = `perf iterating ${len} items`
 
 const createArray = (len: number) => {
@@ -24,22 +25,24 @@ let jailedFunction = createJailedFunction({
 })
 
 let jailedFunctionNoReadOnly = createJailedFunction({
-  cloneResult: false,
+  readOnlyResult: false,
   readOnlyArguments: false,
   readOnlyGlobals: false,
   source: src
 })
 
-
   ; (async () => {
-
     console.time(perfTag)
     const arr = createArray(len)
-    console.timeLog(perfTag)
-    await jailedFunction([arr])
-    console.timeLog(perfTag)
-    await jailedFunctionNoReadOnly([arr])
     console.timeEnd(perfTag)
+
+    console.time('read only')
+    await jailedFunction([arr])
+    console.timeEnd('read only')
+
+    console.time('no read only')
+    await jailedFunctionNoReadOnly([arr])
+    console.timeEnd('no read only')
 
   })()
 
