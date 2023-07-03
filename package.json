@@ -1,7 +1,8 @@
 {
   "name": "jailed-function",
-  "version": "0.5.2",
-  "description": "",
+  "version": "0.5.3",
+  "description": "Safely run untrusted code",
+  "keywords": ["sandbox", "jail", "vm", "low-code"],
   "main": "lib/index.js",
   "type": "commonjs",
   "scripts": {
