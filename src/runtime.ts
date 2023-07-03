@@ -1,4 +1,4 @@
-import { mins, isFunction, isObject, isThenable } from './util'
+import { isFunction, isObject, isThenable } from './util'
 import { TimeoutError, MemoryLimitError } from './error'
 import { sizeOf, isProtectedProperty, formatBytes } from './util'
 
@@ -24,7 +24,7 @@ export class Runtime {
 
   constructor(config: Partial<RuntimeConfig>) {
     this.config = {
-      timeout: mins(10),
+      timeout: 1 * 1000 * 60 * 10, // 10mins
       syncTimeout: 100,
       memoryLimit: 1 * 1024 * 1024 * 10, // 10Mb
       ...config,

@@ -1,5 +1,4 @@
 import { createJailedFunction } from '../src'
-import { readOnly } from '../src/util'
 
 const len = 1000000
 const perfTag = `perf iterating ${len} items`

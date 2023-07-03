@@ -3,7 +3,7 @@ import { Script } from 'vm'
 import { extractTypes } from './types-extractor'
 import { createRuntime } from './runtime'
 import { compile } from './compiler'
-import { isValidIdentifier, createGetTrap, deepClone, getConsole } from './util'
+import { isValidIdentifier, createGetTrap, getConsole } from './util'
 import { readOnly } from './util'
 import endent from 'endent'
 
