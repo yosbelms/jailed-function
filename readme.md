@@ -1,6 +1,6 @@
 # Jailed Function
 
-Jailed Function is a Node.js library that safely runs untrusted code entered by users. It can be used in cloud services or low-code platforms that need to execute user-provided JavaScript.
+Jailed Function is a Node.js library that safely runs untrusted code. It can be used in cloud services or low-code platforms that need to execute user-provided JavaScript.
 
 ## Features
 
@@ -70,11 +70,12 @@ Jailed Function provides access to several convenient built-in globals.
 ## Util
 
 - `readOnly(target: any, traps: {})` Prevents object modification.
-- `createGetTrap(propNames: string[])` Create Proxy get traps that allows access only to the properties passed in arguments.
+- `createGetTrap(propNames: string[])` Create Proxy get traps that allow access only to the properties passed in arguments.
 
 Inject `Math` object allowing only `max` property access. 
 ```js
 const max = createJailedFunction({
+  // declare injected global
   globalNames: ['Math']
   source: `async (a, b) => Math.max(a, b)`
 })
