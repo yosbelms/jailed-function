@@ -1,5 +1,5 @@
 import 'jasmine'
-import { createJailedFunction } from '../src'
+import { createGetTrap, createJailedFunction, readOnly } from '../src'
 import { TimeoutError, MemoryLimitError } from '../src/error'
 import delay from 'delay'
 
@@ -211,4 +211,14 @@ describe('JailedFunction', () => {
     await expectAsync(jailedFunction([], { obj: obj })).toBeRejected()
   })
 
+  it(`'readOnly' throws when setting value`, async () => {
+    const obj = readOnly({ num: 0 })
+    expect(() => obj.num = 1).toThrow()
+  })
+
+  it(`'createGetTrap' throws on unallowed access`, async () => {
+    const _Math = readOnly(Math, createGetTrap(['max']))
+    expect(() => _Math.min = (x, y) => x + y).toThrow()
+    expect(() => _Math.min).toThrow()
+  })
 })

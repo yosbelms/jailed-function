@@ -28,7 +28,6 @@ interface JailedFunctionConfig {
   readOnlyResult: boolean
   readOnlyGlobals: boolean
   readOnlyArguments: boolean
-  strict: boolean
 }
 
 export interface JailedFunction {

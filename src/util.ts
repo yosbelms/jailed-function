@@ -67,6 +67,8 @@ export const createGetTrap = (allowedProperties: string[]) => {
     get(target: any, prop: any, receiver: any) {
       if (map.has(prop)) {
         return readOnlyTraps.get(target, prop, receiver)
+      } else {
+        throw new Error(`Invalid operation: Accessing not allowed '${prop}' property`)
       }
     }
   }

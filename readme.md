@@ -51,8 +51,9 @@ await finUserById([1], { userService })
 - `memoryLimit (bytes)` Maximum amount of memory that the function is allowed to allocate.
 - `source` The function source code. This function must be `async`.
 - `filename` The filename to display in the stack trace.
-- `cloneResult` Whether to deep-clone jalied function return value. Default `true`.
-
+- `readOnlyResult` Whether to make read-only jailed function return value. Default `true`.
+- `readOnlyGlobals` Whether to make read-only jailed function globals. Default `true`.
+- `readOnlyArguments` Whether to make read-only jailed function arguments. Default `true`.
 
 ## Globals
 
@@ -65,3 +66,21 @@ Jailed Function provides access to several convenient built-in globals.
 - `Array [isArray, from, of]`
 - `Number [isFinite, isInteger, isNaN, isSafeInteger, parseFloat, parseInt, MAX_VALUE, MIN_VALUE, NaN, NEGATIVE_INFINITY, POSITIVE_INFINITY, MAX_SAFE_INTEGER, MIN_SAFE_INTEGER, EPSILON]`
 - `String [romCharCode, fromCodePoint, raw]`
+
+## Util
+
+- `readOnly(target: any, traps: {})` Prevents object modification.
+- `createGetTrap(propNames: string[])` Create Proxy get traps that allows access only to the properties passed in arguments.
+
+Inject `Math` object allowing only `max` property access. 
+```js
+const max = createJailedFunction({
+  globalNames: ['Math']
+  source: `async (a, b) => Math.max(a, b)`
+})
+
+// execute the function providing global vars
+await max([1], { Math: readOnly(Math, createGetTrap(['max'])) })
+```
+
+(c) 2023-present Yosbel Marín, MIT License
