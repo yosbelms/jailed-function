@@ -3,7 +3,7 @@ import { Script } from 'vm'
 import { extractTypes } from './types-extractor'
 import { createRuntime } from './runtime'
 import { compile } from './compiler'
-import { isValidIdentifier, createGetTrap, getConsole } from './util'
+import { isValidIdentifier, createGetTrap, getConsole, reservedIdentifiers } from './util'
 import { readOnly } from './util'
 import endent from 'endent'
 
@@ -13,10 +13,7 @@ const defaultMemoryLimit = 500 * 1024 * 1024 // 5Mb
 const baseLanguageSubset = '()=>{};async()=>{};'
 const languageSubset = fs.readFileSync(__dirname + '/javascript-subset.txt', 'utf-8')
 const allowedNodeTypes = extractTypes(baseLanguageSubset + languageSubset)
-const reservedGlobalIdentifiers = [
-  'createRuntime',
-  '__globals'
-]
+const reservedIdentifiersValues = Object.values(reservedIdentifiers)
 
 interface JailedFunctionConfig {
   globalNames: string[]
@@ -124,16 +121,16 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     if (!isValidIdentifier(name)) {
       throw new Error(`Invalid identifier '${name}'`)
     }
-    if (reservedGlobalIdentifiers.indexOf(name) !== -1) {
+    if (reservedIdentifiersValues.indexOf(name) !== -1) {
       throw new Error(`Reserved identifier '${name}'`)
     }
   })
 
   const { code = '' } = compile(source, allowedNodeTypes, globalNamesSet)
-  const __globals = '__globals'
-  const resetContext = endent`const { ${globalNamesSet.join(', ')} } = ${__globals};`
+  const resetContext = endent`const { ${globalNamesSet.join(', ')} } = ${reservedIdentifiers.globals}`;
 
-  const transformedCode = `"use strict"; exports.default = (${__globals}) => { ${resetContext} ${__globals} = void 0;
+  const transformedCode =
+    `"use strict"; exports.default = (${reservedIdentifiers.globals}, ${reservedIdentifiers.runtime}) => { ${resetContext}
 ${`return ${code}`}
 }`
 
@@ -142,13 +139,6 @@ ${`return ${code}`}
   })
 
   const vmCtx = {
-    createRuntime: () => {
-      return createRuntime({
-        timeout,
-        syncTimeout,
-        memoryLimit,
-      })
-    },
     exports: Object.create(null),
   }
 
@@ -181,9 +171,15 @@ ${`return ${code}`}
       importedArgs[i] = readOnlyArguments ? readOnly(args[i]) : args[i]
     }
 
+    const runtime = createRuntime({
+      timeout,
+      syncTimeout,
+      memoryLimit,
+    })
+
     // execute function
     const result = (fn
-      .call(null, importedGlobals)
+      .call(null, importedGlobals, runtime)
       .apply(null, importedArgs)
     )
 

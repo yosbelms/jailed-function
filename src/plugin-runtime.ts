@@ -1,3 +1,5 @@
+import { NodePath, types } from '@babel/core'
+import { reservedIdentifiers } from './util'
 
 const getParentFunctionNode = (t: any, path: any) => {
   let parent = path
@@ -195,8 +197,8 @@ export const createRuntimePlugin = () => {
           const argumentNode = path.node.argument
           const callExpr = t.callExpression(
             t.memberExpression(state.runtimeInstanceIdentifier, t.identifier('awaitPromise')), [
-              argumentNode
-            ]
+            argumentNode
+          ]
           )
 
           callExpr.isRuntimeAwait = true
@@ -205,21 +207,14 @@ export const createRuntimePlugin = () => {
 
         // program setup
         Program: (path: any, state: any) => {
-          const functionPath = path.get('body.0.expression')
+          const functionPath = path.get('body.0.expression') as  NodePath<types.FunctionExpression>
           if (
             path.node.body.length === 1
             && t.isArrowFunctionExpression(functionPath)
             && functionPath.node.async
           ) {
-            functionPath.isTopLevel = true
-            state.runtimeInstanceIdentifier = functionPath.scope.generateUidIdentifier('r')
-            const runtimeAssignment = t.assignmentExpression(
-              '=',
-              state.runtimeInstanceIdentifier,
-              t.callExpression(t.identifier('createRuntime'), [])
-            )
-            functionPath.scope.push(t.declareVariable(state.runtimeInstanceIdentifier))
-            functionPath.node.body.body.unshift(t.expressionStatement(runtimeAssignment))
+            ;(functionPath as any).isTopLevel = true
+            state.runtimeInstanceIdentifier = t.identifier(reservedIdentifiers.runtime)
           } else {
             throw path.buildCodeFrameError('Expected AsyncArrowFunctionExpression');
           }

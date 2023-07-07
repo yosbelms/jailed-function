@@ -76,6 +76,11 @@ export const createGetTrap = (allowedProperties: string[]) => {
 
 const readOnlySymbol = Symbol('read-only')
 
+export const reservedIdentifiers =  {
+  globals: '$$g',
+  runtime: '$$r',
+}
+
 export const isReadOnly = (obj: any) => !isPrimitive(obj) && obj[readOnlySymbol]
 export const noop = () => { }
 
