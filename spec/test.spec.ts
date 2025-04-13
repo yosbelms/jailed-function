@@ -7,10 +7,11 @@ describe('JailedFunction', () => {
 
   describe('should throw', () => {
 
-    it('if it is not an async function', async () => {
+    it('if it is not arrow function expression', async () => {
       const create = () => createJailedFunction({
         source: `const x = 1`
       })
+
       expect(create).toThrow()
     })
 
@@ -43,8 +44,17 @@ describe('JailedFunction', () => {
 
     it('on access to undeclared global', async () => {
       const create = () => createJailedFunction({
-        globalNames: [],
+        availableGlobals: [],
         source: `async() => UndeclaredGlobal`
+      })
+
+      expect(create).toThrow()
+    })
+
+    it('on access to undeclared global native', async () => {
+      const create = () => createJailedFunction({
+        availableGlobals: [],
+        source: `async() => Object`
       })
 
       expect(create).toThrow()
@@ -52,6 +62,7 @@ describe('JailedFunction', () => {
 
     it('on reassign global', async () => {
       const jailedFunc = createJailedFunction({
+        availableGlobals: ['Object'],
         source: `async() => Object = null`
       })
 
@@ -64,7 +75,7 @@ describe('JailedFunction', () => {
   it('should not properly call a function (non member expression) when its arguments are member expressions', async () => {
     const len = 1
     const jailedFunc = createJailedFunction({
-      globalNames: ['Array'],
+      availableGlobals: ['Array'],
       source: `async(len) => {
         const obj = { len: len }
         return Array(obj.len)
@@ -89,7 +100,7 @@ describe('JailedFunction', () => {
 
     const jailedFunc = createJailedFunction({
       timeout: 1000,
-      globalNames: ['service'],
+      availableGlobals: ['service'],
       source: `async() => {
         const result = await service.asyncFn();
         const arrSyncCheckTrigger = [1, 2].map(x => x)
@@ -104,7 +115,7 @@ describe('JailedFunction', () => {
   // bug
   it('should allow to use Promise static methods', async () => {
     const jailedFunc = createJailedFunction({
-      globalNames: ['Promise', 'console'],
+      availableGlobals: ['Promise', 'console'],
       source: `async (x) => {
         return await Promise.all(x)
       }`
@@ -122,7 +133,7 @@ describe('JailedFunction', () => {
     expect(create).not.toThrow()
   })
 
-  it('should throw on passing global vars not declared in "globalNames"', async () => {
+  it('should throw on passing global vars not declared in "availableGlobals"', async () => {
     const jailedFunction = createJailedFunction({
       source: `async () => null`
     })
@@ -131,9 +142,10 @@ describe('JailedFunction', () => {
     expect(callPassingGlobal).toThrow()
   })
 
-  it('should throw when access a global not declared in globalNames', async () => {
+  it('should throw when access a global not declared in availableGlobals', async () => {
     // native support
     let create = () => createJailedFunction({
+      availableGlobals: ['Promise'],
       source: `async () => await Promise.resolve(1)`
     })
     expect(create).not.toThrow()
@@ -204,7 +216,7 @@ describe('JailedFunction', () => {
 
   it('imported globals should be read-only', async () => {
     const jailedFunction = createJailedFunction({
-      globalNames: ['obj'],
+      availableGlobals: ['obj'],
       source: `async () => obj.name = 'Peter'`
     })
     const obj = { name: 'John' }
@@ -220,5 +232,12 @@ describe('JailedFunction', () => {
     const _Math = readOnly(Math, createGetTrap(['max']))
     expect(() => _Math.min = (x, y) => x + y).toThrow()
     expect(() => _Math.min).toThrow()
+  })
+
+  it('should allow sync arrow function', async () => {
+    const fn = createJailedFunction({
+      source: `() => 1`
+    })
+    expect(fn()).toBe(1)
   })
 })

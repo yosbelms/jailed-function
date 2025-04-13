@@ -1,11 +1,10 @@
+import endent from 'endent'
 import fs from 'fs'
 import { Script } from 'vm'
-import { extractTypes } from './types-extractor'
-import { createRuntime } from './runtime'
 import { compile } from './compiler'
-import { isValidIdentifier, createGetTrap, getConsole, reservedIdentifiers } from './util'
-import { readOnly } from './util'
-import endent from 'endent'
+import { createRuntime } from './runtime'
+import { extractTypes } from './types-extractor'
+import { createGetTrap, getConsole, isValidIdentifier, readOnly, reservedIdentifiers } from './util'
 
 const defaultTimeout = 1 * 1000 * 60 // 1min
 const defaultSyncTimeout = 100 // 100ms
@@ -16,7 +15,7 @@ const allowedNodeTypes = extractTypes(baseLanguageSubset + languageSubset)
 const reservedIdentifiersValues = Object.values(reservedIdentifiers)
 
 interface JailedFunctionConfig {
-  globalNames: string[]
+  availableGlobals: string[]
   timeout: number
   syncTimeout: number
   memoryLimit: number
@@ -101,7 +100,7 @@ const readOnlyNatives = {
   URIError: readOnly(URIError, createGetTrap([])),
 }
 
-const readOnlyNativesNames = Object.keys(readOnlyNatives)
+export const nativeGlobalNames = Object.keys(readOnlyNatives)
 
 export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {}): JailedFunction => {
   const {
@@ -111,13 +110,13 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     source = '',
     filename = 'jailed-function:file',
     readOnlyResult = true,
-    globalNames = [],
+    availableGlobals = [],
     readOnlyGlobals = true,
     readOnlyArguments = true,
   } = config
 
-  const globalNamesSet = Array.from(new Set([...readOnlyNativesNames, ...globalNames]))
-  globalNamesSet.forEach((name) => {
+  const availableGlobalsSet = Array.from(new Set([...availableGlobals]))
+  availableGlobalsSet.forEach((name) => {
     if (!isValidIdentifier(name)) {
       throw new Error(`Invalid identifier '${name}'`)
     }
@@ -126,8 +125,11 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     }
   })
 
-  const { code = '' } = compile(source, allowedNodeTypes, globalNamesSet)
-  const resetContext = endent`const { ${globalNamesSet.join(', ')} } = ${reservedIdentifiers.globals}`;
+  const { code = '' } = compile(source, allowedNodeTypes, availableGlobalsSet)
+  const resetContext = (availableGlobalsSet.length
+    ? endent`const { ${availableGlobalsSet.join(', ')} } = ${reservedIdentifiers.globals}`
+    : ''
+  )
 
   const transformedCode =
     `"use strict"; exports.default = (${reservedIdentifiers.globals}, ${reservedIdentifiers.runtime}) => { ${resetContext}
@@ -159,8 +161,8 @@ ${`return ${code}`}
     const globalsKeys = Object.getOwnPropertyNames(globals || {})
     for (let i = 0; i < globalsKeys.length; i++) {
       let key = globalsKeys[i]
-      if (!globalNamesSet.includes(key)) {
-        throw new Error(`Global variable '${key}' not declared in 'globalNames'`)
+      if (!availableGlobalsSet.includes(key)) {
+        throw new Error(`Global variable '${key}' not declared in 'availableGlobals'`)
       }
       importedGlobals[key] = readOnlyGlobals ? readOnly(globals[key]) : globals[key]
     }

@@ -211,12 +211,12 @@ export const createRuntimePlugin = () => {
           if (
             path.node.body.length === 1
             && t.isArrowFunctionExpression(functionPath)
-            && functionPath.node.async
+            // && functionPath.node.async
           ) {
             ;(functionPath as any).isTopLevel = true
             state.runtimeInstanceIdentifier = t.identifier(reservedIdentifiers.runtime)
           } else {
-            throw path.buildCodeFrameError('Expected AsyncArrowFunctionExpression');
+            throw path.buildCodeFrameError('Expected ArrowFunctionExpression');
           }
         },
       }

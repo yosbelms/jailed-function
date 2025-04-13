@@ -21,8 +21,8 @@ describe('JailedFunction attacks', () => {
 
   it('contructor attack', async () => {
     const jailedFunction = createJailedFunction({
-      globalNames: ['console'],
-      readOnlyArguments: false,
+      availableGlobals: ['console'],
+      readOnlyGlobals: false,
       source: `async () => {
         return console.log.constructor
       }`
