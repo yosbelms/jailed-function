@@ -1,6 +1,6 @@
 {
   "name": "jailed-function",
-  "version": "1.5.11",
+  "version": "1.5.12",
   "description": "Safely run untrusted code",
   "keywords": ["sandbox", "jail", "vm", "low-code"],
   "repository": "https://github.com/yosbelms/jailed-function.git",
@@ -11,7 +11,7 @@
     "build": "tsc --sourceMap -d",
     "watch": "tsc --sourceMap --watch",
     "clean": "find src -type f \\( -name \"*.js\" -o -name \"*.js.map\" -o -name \"*.d.ts\" -o -name \"*.d.ts.map\" \\) | grep -v \"./node_modules\" | xargs rm",
-    "prepublish": "npm run clean && npm run test && npm run build",
+    "prepublishOnly": "npm run clean && npm run test && npm run build",
     "perf": "ts-node spec/perf.ts"
   },
   "author": "",
