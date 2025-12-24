@@ -99,7 +99,10 @@ export const getConsole = () => (isProduction()
 
 const readOnlyTraps = {
   construct(target: any, args: any[]): any {
-    return readOnly(new target(...args))
+    const instance = new target(...args)
+    // console.log(instance.stack)
+    return readOnly(instance)
+    // return instance
   },
   get(target: any, prop: any, receiver: any): any {
     const val = Reflect.get(target, prop, receiver)

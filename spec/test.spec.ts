@@ -1,3 +1,4 @@
+import 'source-map-support/register'
 import 'jasmine'
 import { createGetTrap, createJailedFunction, readOnly } from '../src'
 import { TimeoutError, MemoryLimitError } from '../src/error'
@@ -239,5 +240,24 @@ describe('JailedFunction', () => {
       source: `() => 1`
     })
     expect(fn()).toBe(1)
+  })
+
+  it('Sourcemaps', async () => {
+    const err = () => {
+      throw new Error('this is a test')
+    }
+    const fn = createJailedFunction({
+      filename: 'my-file.js',
+      availableGlobals: ['err'],
+      source: `() => {
+        err()
+        return 'ok'
+      }`
+    })
+    try {
+      fn([], { err })
+    } catch (e: any) {
+      expect(e.stack).toContain('my-file.js:2:3')
+    }
   })
 })

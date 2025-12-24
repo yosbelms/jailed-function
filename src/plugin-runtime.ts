@@ -198,8 +198,7 @@ export const createRuntimePlugin = () => {
           const callExpr = t.callExpression(
             t.memberExpression(state.runtimeInstanceIdentifier, t.identifier('awaitPromise')), [
             argumentNode
-          ]
-          )
+          ])
 
           callExpr.isRuntimeAwait = true
           path.node.argument = callExpr
@@ -207,13 +206,13 @@ export const createRuntimePlugin = () => {
 
         // program setup
         Program: (path: any, state: any) => {
-          const functionPath = path.get('body.0.expression') as  NodePath<types.FunctionExpression>
+          const functionPath = path.get('body.0.expression') as NodePath<types.FunctionExpression>
           if (
             path.node.body.length === 1
             && t.isArrowFunctionExpression(functionPath)
             // && functionPath.node.async
           ) {
-            ;(functionPath as any).isTopLevel = true
+            ; (functionPath as any).isTopLevel = true
             state.runtimeInstanceIdentifier = t.identifier(reservedIdentifiers.runtime)
           } else {
             throw path.buildCodeFrameError('Expected ArrowFunctionExpression');

@@ -14,6 +14,7 @@ export const compile = (
 
   const out = babel.transform(src, {
     highlightCode: false,
+    sourceMaps: true,
     plugins: [
       subsetPlugin,
       globalsPlugin,

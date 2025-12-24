@@ -11,7 +11,7 @@ const defaultSyncTimeout = 100 // 100ms
 const defaultMemoryLimit = 500 * 1024 * 1024 // 5Mb
 const baseLanguageSubset = '()=>{};async()=>{};'
 const languageSubset = fs.readFileSync(__dirname + '/javascript-subset.txt', 'utf-8')
-const allowedNodeTypes = extractTypes(baseLanguageSubset + languageSubset)
+const allowedNodeTypes = Array.from(new Set(extractTypes(baseLanguageSubset + languageSubset)))
 const reservedIdentifiersValues = Object.values(reservedIdentifiers)
 
 interface JailedFunctionConfig {
@@ -125,16 +125,17 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     }
   })
 
-  const { code = '' } = compile(source, allowedNodeTypes, availableGlobalsSet)
+  const { code = '', map } = compile(source, allowedNodeTypes, availableGlobalsSet)
   const resetContext = (availableGlobalsSet.length
     ? endent`const { ${availableGlobalsSet.join(', ')} } = ${reservedIdentifiers.globals}`
     : ''
   )
 
+  const sourceMap = map ? `\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(map)).toString('base64')}` : ''
+
   const transformedCode =
-    `"use strict"; exports.default = (${reservedIdentifiers.globals}, ${reservedIdentifiers.runtime}) => { ${resetContext}
-${`return ${code}`}
-}`
+    `"use strict"; exports.default = (${reservedIdentifiers.globals}, ${reservedIdentifiers.runtime}) => { ${resetContext}; ${`return ${code}`}${sourceMap}
+  }`
 
   const script = new Script(transformedCode, {
     filename,
