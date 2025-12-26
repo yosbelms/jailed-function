@@ -2,20 +2,56 @@
 
 Jailed Function is a Node.js library that safely runs untrusted code. It can be used in cloud services or low-code platforms that need to execute user-provided JavaScript.
 
+## Table of Contents
+
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Architecture](#architecture)
+- [Usage](#usage)
+- [Security](#security)
+- [Globals](#globals)
+- [Benchmarks](#benchmarks)
+- [Util](#util)
+- [Development](#development)
+- [License](#license)
+
 ## Features
 
-- **Immune to all known attacks:** Jailed Function uses a variety of security mechanisms to prevent attacks, including code contrains, sandboxing, and runtime watchdog.
-- **Securely run JavaScript code:** Jailed Function allows you to run untrusted JavaScript code in a safe environment. Your code and the jailed code will share the same event loop, but the jailed code will be unable to access your data or resources.
-- **Customizable function execution time limit:** You can set a limit on the amount of time that a jailed function can execute. This helps to prevent DoS attacks and other malicious behavior.
-- **Customizable function memory allocation:** You can set a limit on the amount of memory that a jailed function can allocate. This helps to prevent memory leaks and other resource-intensive behavior.
+- **Secure by default:** Protects against common attacks using code constraints, sandboxing, and injected runtime checks.
+- **Run untrusted JavaScript securely:** The jailed code runs in the same event loop but can't access your data or resources.
+- **Set execution time limits:** Prevents DoS attacks and runaway scripts.
+- **Set memory allocation limits:** Prevents memory leaks and excessive memory usage.
 
-## How does it work
+## How it works
 
-1. The source code is transpiled to a secure source code by allowing only a [JavaScript subset](src/javascript-subset.txt) and limiting global variable access at compile time. Additionaly the new code contains runtime memory and execution time checks to limit resource usage on each run.
-2. Run secured source code in an isolated context using Node.js VM.
-3. All imported globals, arguments passed, and return values of jailed functions are made read-only using Proxies, thus preventing mutations.
+1.  **Compile-time restrictions**: The source code is validated against a secure [subset of JavaScript](src/javascript-subset.txt), then transpiled to inject runtime checks and limit global variable access.
+2.  **Sandboxing**: The secured code runs in an isolated `vm` context.
+3.  **Immutability**: Globals, arguments, and return values are made read-only using Proxies to prevent mutations.
+
+## Architecture
+
+The library has two main components:
+
+- **Compiler:** Validates the source code against a strict feature whitelist and then transpiles it. During transpilation, it injects runtime checks for memory, execution time, and property access.
+- **Runtime:** Executes the compiled code in an isolated `vm` context, providing the functions that the injected checks call into to manage resources and security.
 
 ## Usage
+
+### `createJailedFunction(options)`
+
+Creates a jailed function that can be executed safely.
+
+#### Options
+
+- `source` (string): The `async` function source code.
+- `availableGlobals` (string[]): Allowed global variable names inside the jailed function.
+- `timeout` (number): Max execution time in ms. Default: `60000` (1 minute).
+- `syncTimeout` (number): Max synchronous execution time in ms. Default: `100`.
+- `memoryLimit` (number): Max memory allocation in bytes. Default: `524288000` (500 MB).
+- `filename` (string): Filename for stack traces. Default: `jailed-function:file`.
+- `readOnlyResult` (boolean): Make the return value read-only. Default: `true`.
+- `readOnlyGlobals` (boolean): Make globals read-only. Default: `true`.
+- `readOnlyArguments` (boolean): Make arguments read-only. Default: `true`.
 
 Basic usage:
 ```js
@@ -30,57 +66,78 @@ await jailedFunc([2, 3]) // returns 5
 
 Injecting global variables into the execution context:
 ```js
-const finUserById = createJailedFunction({
-  // declaring global vars
-  globalNames: ['userService']
+const findUserById = createJailedFunction({
+  availableGlobals: ['userService'],
   source: `async (id) => {
     return userService.byId(id)
   }`
 })
 
-// execute the function providing global vars
-await finUserById([1], { userService })
+// provide global variables during execution
+await findUserById([1], { userService })
 ```
 
-## Options
+## Security
 
-- `globalNames` List of global variable names allowed to use inside the jailed function.
-- `timeout (ms)` Maximum execution time for the function. Default 1min.
-- `syncTimeout (ms)` Maximum execution time for the function running synchronous code. Default 100ms.
-- `memoryLimit (bytes)` Maximum amount of memory that the function is allowed to allocate.
-- `source` The function source code. This function must be `async`.
-- `filename` The filename to display in the stack trace.
-- `readOnlyResult` Whether to make read-only jailed function return value. Default `true`.
-- `readOnlyGlobals` Whether to make read-only jailed function globals. Default `true`.
-- `readOnlyArguments` Whether to make read-only jailed function arguments. Default `true`.
+Jailed Function provides a secure environment for untrusted JavaScript.
+
+- **Code restrictions:** The compiler enforces a strict whitelist of language features and globals. This prevents the use of potentially malicious features, such as dynamic code execution (`eval`, `Function`) or module loading (`require`).
+- **Sandboxing:** Node.js `vm` creates an isolated context, preventing access to the file system, network, and other sensitive resources.
+- **Runtime checks:** Injected code monitors execution time and memory usage, terminating the function to prevent DoS attacks or memory leaks.
+- **Immutability:** Globals, arguments, and return values are made read-only to protect your data.
 
 ## Globals
 
-Jailed Function provides access to several convenient built-in globals.
+Provides several built-in globals:
 
-- `console [log, error, warn]` *muted in production*
-- `Object [keys, values, hasOwnProperty, fromEntries, assign, create]`
-- `Promise [all, race, resolve, reject, allSettled]`
-- `Date [now, parse, UTC]`
-- `Array [isArray, from, of]`
-- `Number [isFinite, isInteger, isNaN, isSafeInteger, parseFloat, parseInt, MAX_VALUE, MIN_VALUE, NaN, NEGATIVE_INFINITY, POSITIVE_INFINITY, MAX_SAFE_INTEGER, MIN_SAFE_INTEGER, EPSILON]`
-- `String [romCharCode, fromCodePoint, raw]`
+- `console.[log, error, warn]` (*muted in production*)
+- `Object.[keys, values, hasOwnProperty, fromEntries, assign, create]`
+- `Promise.[all, race, resolve, reject, allSettled]`
+- `Date.[now, parse, UTC]`
+- `Array.[isArray, from, of]`
+- `Number.[isFinite, isInteger, isNaN, isSafeInteger, parseFloat, parseInt, MAX_VALUE, MIN_VALUE, NaN, NEGATIVE_INFINITY, POSITIVE_INFINITY, MAX_SAFE_INTEGER, MIN_SAFE_INTEGER, EPSILON]`
+- `String.[fromCharCode, fromCodePoint, raw]`
+
+## Benchmarks
+
+Jailed Function is designed for performance. See our benchmarks against other popular libraries.
+
+Performance tests are in [`spec/perf.ts`](spec/perf.ts).
 
 ## Util
 
-- `readOnly(target: any, traps: {})` Prevents object modification.
-- `createGetTrap(propNames: string[])` Create Proxy get traps that allow access only to the properties passed in arguments.
+- `readOnly(target, traps)`: Prevents object modification.
+- `createGetTrap(propNames)`: Creates a Proxy `get` trap to allow access only to specified properties.
 
-Inject `Math` object allowing only `max` property access. 
+Inject `Math` object allowing only `max` property access.
 ```js
 const max = createJailedFunction({
-  // declare injected global
-  globalNames: ['Math']
+  availableGlobals: ['Math'],
   source: `async (a, b) => Math.max(a, b)`
 })
 
-// execute the function providing global vars
-await max([1], { Math: readOnly(Math, createGetTrap(['max'])) })
+// provide Math global during execution
+await max([1, 2], { Math: readOnly(Math, createGetTrap(['max'])) })
 ```
+
+## Development
+
+### Build
+
+To build the library, run the following command:
+
+```bash
+npm run build
+```
+
+### Test
+
+To run the tests, run the following command:
+
+```bash
+npm run test
+```
+
+## License
 
 (c) 2023-present Yosbel Marín, MIT License

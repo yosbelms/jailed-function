@@ -14,23 +14,68 @@ const languageSubset = fs.readFileSync(__dirname + '/javascript-subset.txt', 'ut
 const allowedNodeTypes = Array.from(new Set(extractTypes(baseLanguageSubset + languageSubset)))
 const reservedIdentifiersValues = Object.values(reservedIdentifiers)
 
+/**
+ * Jailed function configuration.
+ */
 interface JailedFunctionConfig {
+  /**
+   * List of global variable names allowed to use inside the jailed function.
+   */
   availableGlobals: string[]
+  /**
+   * Maximum execution time for the function in milliseconds.
+   */
   timeout: number
+  /**
+   * Maximum execution time for the function running synchronous code in milliseconds.
+   */
   syncTimeout: number
+  /**
+   * Maximum amount of memory that the function is allowed to allocate in bytes.
+   */
   memoryLimit: number
+  /**
+   * The function source code.
+   */
   source: string
+  /**
+   * The filename to display in the stack trace.
+   */
   filename: string
+  /**
+   * Whether to make read-only jailed function return value.
+   */
   readOnlyResult: boolean
+  /**
+   * Whether to make read-only jailed function globals.
+   */
   readOnlyGlobals: boolean
+  /**
+   * Whether to make read-only jailed function arguments.
+   */
   readOnlyArguments: boolean
 }
 
+/**
+ * A jailed function that can be executed safely.
+ */
 export interface JailedFunction {
+  /**
+   * Executes the jailed function.
+   * @param args The arguments to pass to the function.
+   * @param globals The global variables to make available to the function.
+   * @returns The return value of the function.
+   */
   (args?: any[], globals?: { [k: string]: any }): any
+  /**
+   * The transformed source code of the jailed function.
+   */
   source: string
 }
 
+/**
+ * A map of read-only native objects that are available to the jailed function.
+ */
 const readOnlyNatives = {
   console: readOnly(getConsole(), createGetTrap([
     'log',
@@ -100,8 +145,16 @@ const readOnlyNatives = {
   URIError: readOnly(URIError, createGetTrap([])),
 }
 
+/**
+ * The names of the native global variables that are available to the jailed function.
+ */
 export const nativeGlobalNames = Object.keys(readOnlyNatives)
 
+/**
+ * Creates a jailed function that can be executed safely.
+ * @param config The configuration for the jailed function.
+ * @returns A jailed function.
+ */
 export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {}): JailedFunction => {
   const {
     timeout = defaultTimeout,
@@ -125,6 +178,7 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     }
   })
 
+  // compile the source code
   const { code = '', map } = compile(source, allowedNodeTypes, availableGlobalsSet)
   const resetContext = (availableGlobalsSet.length
     ? endent`const { ${availableGlobalsSet.join(', ')} } = ${reservedIdentifiers.globals}`
@@ -133,10 +187,12 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
 
   const sourceMap = map ? `\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(JSON.stringify(map)).toString('base64')}` : ''
 
+  // create the transformed code
   const transformedCode =
     `"use strict"; exports.default = (${reservedIdentifiers.globals}, ${reservedIdentifiers.runtime}) => { ${resetContext}; ${`return ${code}`}${sourceMap}
   }`
 
+  // create a new script
   const script = new Script(transformedCode, {
     filename,
   })
@@ -174,6 +230,7 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
       importedArgs[i] = readOnlyArguments ? readOnly(args[i]) : args[i]
     }
 
+    // create the runtime
     const runtime = createRuntime({
       timeout,
       syncTimeout,
