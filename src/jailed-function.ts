@@ -4,7 +4,7 @@ import { Script } from 'vm'
 import { compile } from './compiler'
 import { createRuntime } from './runtime'
 import { extractTypes } from './types-extractor'
-import { createGetTrap, getConsole, isValidIdentifier, readOnly, reservedIdentifiers } from './util'
+import { createGetTrap, getConsole, isValidIdentifier, readOnly, reservedIdentifiers, sanitizeError } from './util'
 
 const defaultTimeout = 1 * 1000 * 60 // 1min
 const defaultSyncTimeout = 100 // 100ms
@@ -178,8 +178,16 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     }
   })
 
-  // compile the source code
-  const { code = '', map } = compile(source, allowedNodeTypes, availableGlobalsSet)
+  // compile the source code with error sanitization
+  let code = ''
+  let map: any
+  try {
+    const compiled = compile(source, allowedNodeTypes, availableGlobalsSet)
+    code = compiled.code || ''
+    map = compiled.map
+  } catch (e) {
+    throw sanitizeError(e as Error, filename)
+  }
   const resetContext = (availableGlobalsSet.length
     ? endent`const { ${availableGlobalsSet.join(', ')} } = ${reservedIdentifiers.globals}`
     : ''
@@ -237,13 +245,17 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
       memoryLimit,
     })
 
-    // execute function
-    const result = (fn
-      .call(null, importedGlobals, runtime)
-      .apply(null, importedArgs)
-    )
+    // execute function with error sanitization
+    try {
+      const result = (fn
+        .call(null, importedGlobals, runtime)
+        .apply(null, importedArgs)
+      )
 
-    return readOnlyResult ? readOnly(result) : result
+      return readOnlyResult ? readOnly(result) : result
+    } catch (e) {
+      throw sanitizeError(e as Error, filename)
+    }
   }
 
   jailedFunction.source = transformedCode
