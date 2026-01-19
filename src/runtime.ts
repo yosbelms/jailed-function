@@ -163,6 +163,128 @@ export class Runtime {
     this.checkAsync()
     return result
   }
+
+  // Chunk size for spread operations - check timeout every N elements
+  private readonly SPREAD_CHUNK_SIZE = 1000
+
+  /**
+   * Safely spread arrays with timeout checks.
+   * Transforms: [...arr1, x, ...arr2] -> spreadArray([[arr1, true], [x, false], [arr2, true]])
+   * @param elements Array of [value, isSpread] tuples
+   */
+  spreadArray(elements: [any, boolean][]): any[] {
+    const result: any[] = []
+
+    for (const [value, isSpread] of elements) {
+      if (isSpread) {
+        // Spread the iterable in chunks
+        if (value == null) continue
+
+        if (Array.isArray(value)) {
+          for (let i = 0; i < value.length; i += this.SPREAD_CHUNK_SIZE) {
+            this.checkSync()
+            const end = Math.min(i + this.SPREAD_CHUNK_SIZE, value.length)
+            for (let j = i; j < end; j++) {
+              result.push(value[j])
+            }
+          }
+        } else if (typeof value[Symbol.iterator] === 'function') {
+          // Handle other iterables
+          let count = 0
+          for (const item of value) {
+            if (count++ % this.SPREAD_CHUNK_SIZE === 0) {
+              this.checkSync()
+            }
+            result.push(item)
+          }
+        }
+      } else {
+        // Regular element
+        result.push(value)
+      }
+    }
+
+    return this.createProxy(result)
+  }
+
+  /**
+   * Safely spread objects with timeout checks.
+   * Transforms: {...obj1, key: val, ...obj2} -> spreadObject([[obj1, true], [{key: val}, false], [obj2, true]])
+   * @param sources Array of [value, isSpread] tuples
+   */
+  spreadObject(sources: [any, boolean][]): any {
+    const result: any = {}
+
+    for (const [source, isSpread] of sources) {
+      if (isSpread) {
+        // Spread the object in chunks
+        if (source == null) continue
+
+        const keys = Object.keys(source)
+        for (let i = 0; i < keys.length; i += this.SPREAD_CHUNK_SIZE) {
+          this.checkSync()
+          const end = Math.min(i + this.SPREAD_CHUNK_SIZE, keys.length)
+          for (let j = i; j < end; j++) {
+            const key = keys[j]
+            if (!isProtectedProperty(key)) {
+              result[key] = source[key]
+            }
+          }
+        }
+      } else {
+        // Regular object literal properties - copy directly
+        if (source == null) continue
+        const keys = Object.keys(source)
+        for (const key of keys) {
+          if (!isProtectedProperty(key)) {
+            result[key] = source[key]
+          }
+        }
+      }
+    }
+
+    return this.createProxy(result)
+  }
+
+  /**
+   * Safely spread arguments in function calls with timeout checks.
+   * Transforms: fn(a, ...args, b) -> spreadCall(fn, [[a, false], [args, true], [b, false]])
+   * @param fn The function to call
+   * @param args Array of [value, isSpread] tuples
+   * @param thisArg Optional this context
+   */
+  spreadCall(fn: Function, args: [any, boolean][], thisArg?: any): any {
+    const flatArgs: any[] = []
+
+    for (const [value, isSpread] of args) {
+      if (isSpread) {
+        // Spread the iterable in chunks
+        if (value == null) continue
+
+        if (Array.isArray(value)) {
+          for (let i = 0; i < value.length; i += this.SPREAD_CHUNK_SIZE) {
+            this.checkSync()
+            const end = Math.min(i + this.SPREAD_CHUNK_SIZE, value.length)
+            for (let j = i; j < end; j++) {
+              flatArgs.push(value[j])
+            }
+          }
+        } else if (typeof value[Symbol.iterator] === 'function') {
+          let count = 0
+          for (const item of value) {
+            if (count++ % this.SPREAD_CHUNK_SIZE === 0) {
+              this.checkSync()
+            }
+            flatArgs.push(item)
+          }
+        }
+      } else {
+        flatArgs.push(value)
+      }
+    }
+
+    return fn.apply(thisArg, flatArgs)
+  }
 }
 
 export const createRuntime = (config: Partial<RuntimeConfig>) => {

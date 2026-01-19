@@ -76,7 +76,7 @@ export const createGetTrap = (allowedProperties: string[]) => {
 
 const readOnlySymbol = Symbol('read-only')
 
-export const reservedIdentifiers =  {
+export const reservedIdentifiers = {
   globals: '$$g',
   runtime: '$$r',
 }
@@ -127,4 +127,34 @@ export const readOnly = <T>(target: T, traps: { [k: string]: Function } = {}): T
     })
     return new Proxy(target, { ...readOnlyTraps, ...traps })
   }
+}
+
+
+
+// Sanitizes error stack traces to prevent leaking internal implementation paths.
+const sanitizeStack = (stack: string | undefined, filename: string): string => {
+  if (!stack) return ''
+
+  const lines = stack.split('\n')
+  const sanitized = lines.filter(line => {
+    // Keep only lines that don't expose internal implementation
+    return (
+      !line.includes('node_modules') &&
+      !line.includes('jailed-function/src/') &&
+      !line.includes('/src/runtime.ts') &&
+      !line.includes('/src/jailed-function.ts') &&
+      !line.includes('/src/compiler.ts')
+    )
+  }).map(line => {
+    // Normalize internal references to the configured filename
+    return line.replace(/jailed-function:file/g, filename)
+  })
+
+  return sanitized.join('\n')
+}
+
+// Sanitizes an error by removing internal stack trace information.
+export const sanitizeError = <T extends Error>(error: T, filename: string): T => {
+  error.stack = sanitizeStack(error.stack, filename)
+  return error
 }
