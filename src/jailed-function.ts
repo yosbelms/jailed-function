@@ -243,7 +243,6 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
       .apply(null, importedArgs)
     )
 
-    // deep-clone results
     return readOnlyResult ? readOnly(result) : result
   }
 
