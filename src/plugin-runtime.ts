@@ -305,7 +305,7 @@ export const createRuntimePlugin = () => {
             }
           } else if (
             t.isCallExpression(path.parent)
-            && path.parent.callee === path
+            && path.parent.callee === path.node
             && !path.parent.isRuntimeCall
           ) {
             const args = path.parent.arguments

@@ -5,10 +5,21 @@ import { compile } from './compiler'
 import { createRuntime } from './runtime'
 import { extractTypes } from './types-extractor'
 import { createGetTrap, getConsole, isValidIdentifier, readOnly, reservedIdentifiers, sanitizeError } from './util'
+import {
+  safeEncodeURIComponent,
+  safeEncodeURI,
+  configureChunkSizes,
+  configureSizeThresholds,
+  ChunkSizes,
+  SizeThresholds,
+} from './safe-overrides'
+import { configureWorker, WorkerConfig } from './worker'
 
 const defaultTimeout = 1 * 1000 * 60 // 1min
 const defaultSyncTimeout = 100 // 100ms
-const defaultMemoryLimit = 500 * 1024 * 1024 // 5Mb
+const defaultEnableNativeProctection = true
+const defaultMemoryLimit = 500 * 1024 * 1024 // 500Mb
+const defaultMutationTreshold = 0
 const baseLanguageSubset = '()=>{};async()=>{};'
 const languageSubset = fs.readFileSync(__dirname + '/javascript-subset.txt', 'utf-8')
 const allowedNodeTypes = Array.from(new Set(extractTypes(baseLanguageSubset + languageSubset)))
@@ -35,6 +46,10 @@ interface JailedFunctionConfig {
    */
   memoryLimit: number
   /**
+   * Enable protection for high-risk V8 operations (regex, Object.keys, etc.).
+   */
+  enableNativeProtection: boolean
+  /**
    * The function source code.
    */
   source: string
@@ -54,6 +69,22 @@ interface JailedFunctionConfig {
    * Whether to make read-only jailed function arguments.
    */
   readOnlyArguments: boolean
+  /**
+   * Chunk sizes for iterative operations (affects timeout check frequency).
+   */
+  chunkSizes: Partial<ChunkSizes>
+  /**
+   * Size thresholds for triggering worker-based execution.
+   */
+  sizeThresholds: Partial<SizeThresholds>
+  /**
+   * Worker thread configuration.
+   */
+  workerConfig: Partial<WorkerConfig>
+  /**
+   * Mutation treshold to trigger memory size check
+   */
+  mutationTreshold: number
 }
 
 /**
@@ -159,14 +190,24 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
   const {
     timeout = defaultTimeout,
     syncTimeout = defaultSyncTimeout,
+    enableNativeProtection = defaultEnableNativeProctection,
     memoryLimit = defaultMemoryLimit,
+    mutationTreshold = defaultMutationTreshold,
     source = '',
     filename = 'jailed-function:file',
     readOnlyResult = true,
     availableGlobals = [],
     readOnlyGlobals = true,
     readOnlyArguments = true,
+    chunkSizes,
+    sizeThresholds,
+    workerConfig,
   } = config
+
+  // Apply configurations
+  if (chunkSizes) configureChunkSizes(chunkSizes)
+  if (sizeThresholds) configureSizeThresholds(sizeThresholds)
+  if (workerConfig) configureWorker(workerConfig)
 
   const availableGlobalsSet = Array.from(new Set([...availableGlobals]))
   availableGlobalsSet.forEach((name) => {
@@ -221,8 +262,22 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     args: any[] = [],
     globals: { [k: string]: any } = {},
   ) => {
+    // create the runtime first (needed for safe encoding functions)
+    const runtime = createRuntime({
+      timeout,
+      syncTimeout,
+      memoryLimit,
+      enableNativeProtection,
+      mutationTreshold,
+    })
+
     // make globals read-only
-    const importedGlobals: typeof globals = { ...readOnlyNatives }
+    const importedGlobals: typeof globals = {
+      ...readOnlyNatives,
+      // Use safe chunked encoding functions (no worker thread overhead)
+      encodeURIComponent: (str: string) => safeEncodeURIComponent(() => runtime.checkSync(), str),
+      encodeURI: (str: string) => safeEncodeURI(() => runtime.checkSync(), str),
+    }
     const globalsKeys = Object.getOwnPropertyNames(globals || {})
     for (let i = 0; i < globalsKeys.length; i++) {
       let key = globalsKeys[i]
@@ -236,14 +291,8 @@ export const createJailedFunction = (config: Partial<JailedFunctionConfig> = {})
     let importedArgs: typeof args = []
     for (let i = 0; i < args.length; i++) {
       importedArgs[i] = readOnlyArguments ? readOnly(args[i]) : args[i]
+      runtime.checkAlloc(runtime.sizeOf(importedArgs[i]))
     }
-
-    // create the runtime
-    const runtime = createRuntime({
-      timeout,
-      syncTimeout,
-      memoryLimit,
-    })
 
     // execute function with error sanitization
     try {

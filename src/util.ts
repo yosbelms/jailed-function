@@ -1,5 +1,4 @@
 // https://www.mattzeunert.com/2016/07/24/javascript-array-object-sizes.html
-// Though, those sizes represents the worst case
 
 export const sizeOf = (obj: any) => {
   let bytes = 2
